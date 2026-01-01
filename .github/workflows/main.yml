@@ -1,99 +1,79 @@
-#NoEnv
-#SingleInstance Force
-SetTitleMatchMode, 2
-SendMode, Input
-SetBatchLines, -1
+name: RDP
 
-; =========================
-; CONFIG
-; =========================
-TargetTitle := "Instagram"
+on:
+  workflow_dispatch:
 
-ClipMessages := []
-ClipMessages.Push("BYE")
-ClipMessages.Push("HELLO WORLD")
-ClipMessages.Push("Hello")
+jobs:
+  secure-rdp:
+    runs-on: windows-latest
+    timeout-minutes: 360
 
-MinDelay := 500            ; minimum delay (ms)
-MaxDelay := 900            ; maximum delay (ms)
-PendingThreshold := 2000   ; agar send me itna time laga → pending
-PauseCheckDelay := 4200    ; pending ke baad wait
+    steps:
+      - name: Enable RDP & Firewall
+        run: |
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+            -Name fDenyTSConnections -Value 0 -Force
 
-Running := false
-Paused := false
-MessageIndex := 1
-; =========================
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
+            -Name UserAuthentication -Value 0 -Force
 
-; ---------- START ----------
-F8::
-if (Running)
-    return
+          netsh advfirewall firewall delete rule name="RDP" | Out-Null
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
 
-Running := true
-Paused := false
+          Restart-Service TermService -Force
 
-while (Running)
-{
-    if !WinExist(TargetTitle)
-    {
-        ToolTip, Instagram window not found
-        break
-    }
+      - name: Create RDP User
+        run: |
+          $chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"
+          $password = -join ((1..16) | ForEach-Object { $chars | Get-Random -Count 1 })
 
-    WinActivate
-    WinWaitActive, %TargetTitle%,, 2
+          $secure = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser RDP -Password $secure -AccountNeverExpires
+          Add-LocalGroupMember Administrators RDP
+          Add-LocalGroupMember "Remote Desktop Users" RDP
 
-    if (Paused)
-    {
-        ToolTip, Pending detected... waiting
-        Sleep, PauseCheckDelay
-        Paused := false
-        ToolTip
-        continue
-    }
+          echo "RDP_USER=RDP" >> $env:GITHUB_ENV
+          echo "RDP_PASS=$password" >> $env:GITHUB_ENV
 
-    msg := ClipMessages[MessageIndex]
+      - name: Optimize Performance
+        run: |
+          powercfg -setactive SCHEME_MIN
 
-    ; ---- Safe clipboard send ----
-    ClipSaved := ClipboardAll
-    Clipboard := msg
-    Sleep, 60
+          Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' `
+            -Name VisualFXSetting -Value 2
 
-    startTime := A_TickCount
+          Stop-Service wuauserv -Force
+          Set-Service wuauserv -StartupType Disabled
 
-    SendInput, ^v
-    Sleep, 70
-    SendInput, {Enter}
+          Set-MpPreference -DisableRealtimeMonitoring $true
 
-    sendTime := A_TickCount - startTime
+      - name: Install Tailscale
+        run: |
+          Invoke-WebRequest https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi `
+            -OutFile tailscale.msi
 
-    Clipboard := ClipSaved
+          Start-Process msiexec.exe -ArgumentList "/i tailscale.msi /quiet /norestart" -Wait
 
-    ; ---- Pending detection ----
-    if (sendTime > PendingThreshold)
-    {
-        Paused := true
-        continue
-    }
+      - name: Connect Tailscale
+        run: |
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up `
+            --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} `
+            --hostname=gh-rdp-$env:GITHUB_RUN_ID
 
-    ; ---- Random human delay ----
-    Random, wait, MinDelay, MaxDelay
-    Sleep, wait
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          echo "TS_IP=$ip" >> $env:GITHUB_ENV
 
-    MessageIndex++
-    if (MessageIndex > ClipMessages.Length())
-        MessageIndex := 1
+      - name: Show RDP Details
+        run: |
+          Write-Host "=============================="
+          Write-Host " RDP READY "
+          Write-Host " IP : $env:TS_IP"
+          Write-Host " USER : $env:RDP_USER"
+          Write-Host " PASS : $env:RDP_PASS"
+          Write-Host "=============================="
 
-    ; CPU breathing
-    Sleep, 120
-}
-return
-
-; ---------- STOP ----------
-F9::
-Running := false
-Paused := false
-ToolTip, Script Stopped
-Sleep, 800
-ToolTip
-return
+      - name: Keep Alive
+        run: |
+          while ($true) {
+            Start-Sleep -Seconds 900
+          }
