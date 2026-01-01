@@ -9,19 +9,22 @@ SetBatchLines, -1
 ; =========================
 TargetTitle := "Instagram"
 
-ClipMessages := ["BYE", "HELLO WORLD", "Hello"]
+ClipMessages := []
+ClipMessages.Push("BYE")
+ClipMessages.Push("HELLO WORLD")
+ClipMessages.Push("Hello")
 
-MinDelay := 500        ; normal gap
-MaxDelay := 900
-PendingThreshold := 2000   ; agar send me itna time lage → pending assume
-PauseCheckDelay := 4200    ; pause ke baad recheck time
+MinDelay := 500            ; minimum delay (ms)
+MaxDelay := 900            ; maximum delay (ms)
+PendingThreshold := 2000   ; agar send me itna time laga → pending
+PauseCheckDelay := 4200    ; pending ke baad wait
 
 Running := false
 Paused := false
 MessageIndex := 1
-
 ; =========================
 
+; ---------- START ----------
 F8::
 if (Running)
     return
@@ -51,31 +54,29 @@ while (Running)
 
     msg := ClipMessages[MessageIndex]
 
-    ; Clipboard safe send
+    ; ---- Safe clipboard send ----
     ClipSaved := ClipboardAll
     Clipboard := msg
-    Sleep, 50
+    Sleep, 60
 
     startTime := A_TickCount
 
     SendInput, ^v
-    Sleep, 50
+    Sleep, 70
     SendInput, {Enter}
 
     sendTime := A_TickCount - startTime
 
     Clipboard := ClipSaved
 
-    ; -------------------------
-    ; PENDING DETECTION
-    ; -------------------------
+    ; ---- Pending detection ----
     if (sendTime > PendingThreshold)
     {
         Paused := true
         continue
     }
 
-    ; Normal delay
+    ; ---- Random human delay ----
     Random, wait, MinDelay, MaxDelay
     Sleep, wait
 
@@ -84,14 +85,15 @@ while (Running)
         MessageIndex := 1
 
     ; CPU breathing
-    Sleep, 100
+    Sleep, 120
 }
 return
 
+; ---------- STOP ----------
 F9::
 Running := false
 Paused := false
 ToolTip, Script Stopped
-Sleep, 500
+Sleep, 800
 ToolTip
 return
