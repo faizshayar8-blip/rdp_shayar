@@ -1,47 +1,39 @@
-import express from "express";
-import fetch from "node-fetch";
+const express = require("express");
+const fetch = require("node-fetch");
 
 const app = express();
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
-// ✅ ROOT FIX (404 nahi aayega)
+// Health check (Render / browser test ke liye)
 app.get("/", (req, res) => {
-  res.send("AI Bot is alive ✅");
+  res.send("AI Bot is running ✅");
 });
 
-// ✅ HEALTH CHECK (Render ke liye)
-app.get("/health", (req, res) => {
-  res.send("OK");
-});
-
-// 🤖 AI ROUTE (Nightbot yahin hit karega)
+// AI endpoint (Nightbot yahi hit karega)
 app.get("/ask", async (req, res) => {
   try {
-    const userMsg = req.query.msg;
-    if (!userMsg) {
-      return res.send("Kuch likho bhai 😅");
-    }
+    const msg = req.query.msg;
+    if (!msg) return res.send("Kuch pucho bhai 🙂");
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return res.send("API key missing ❌");
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
-        messages: [
-          { role: "system", content: "You are a helpful Hindi-English YouTube live chat assistant." },
-          { role: "user", content: userMsg }
-        ],
-        max_tokens: 80
+        messages: [{ role: "user", content: msg }]
       })
     });
 
     const data = await response.json();
 
     if (!data.choices) {
-      return res.send("AI error aa gaya 🤕");
+      return res.send("AI reply nahi mila 😕");
     }
 
     const reply = data.choices[0].message.content;
@@ -49,12 +41,10 @@ app.get("/ask", async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.send("Server error 😓");
+    res.send("Server error ❌");
   }
 });
 
-// 🚀 SERVER START
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log("Server running on port", PORT);
 });
