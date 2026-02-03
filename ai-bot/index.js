@@ -7,44 +7,48 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Home route (Render health check)
+// Home
 app.get("/", (req, res) => {
-  res.send("✅ Nightbot AI is Running!");
+  res.send("✅ Nightbot AI (Gemini) Running!");
 });
 
-// AI Command Route (for Nightbot)
+// AI Route
 app.get("/ai", async (req, res) => {
   try {
-    const question = req.query.q;
+    const q = req.query.q;
 
-    if (!question) {
-      return res.send("❌ Please provide a question.");
+    if (!q) {
+      return res.send("❌ Question missing");
     }
 
-    // Example AI API (Replace with your real API)
-    const apiKey = process.env.OPENAI_KEY;
+    const API_KEY = process.env.GEMINI_KEY;
 
-    if (!apiKey) {
-      return res.send("❌ API Key Missing!");
+    if (!API_KEY) {
+      return res.send("❌ Gemini API Key Missing");
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [
-          { role: "user", content: question }
+        contents: [
+          {
+            parts: [{ text: q }]
+          }
         ]
       })
     });
 
     const data = await response.json();
 
-    const reply = data.choices?.[0]?.message?.content || "No response";
+    const reply =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No reply from AI";
 
     res.send(reply);
 
@@ -54,7 +58,7 @@ app.get("/ai", async (req, res) => {
   }
 });
 
-// Start Server
+// Start
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log("🚀 Server running on " + PORT);
 });
