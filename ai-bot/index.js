@@ -4,40 +4,34 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.json());
 
-// Root check
 app.get("/", (req, res) => {
-  res.send("AI Running");
+  res.send("AI Bot is running");
 });
 
-// AI endpoint
-app.get("/ai", async (req, res) => {
+app.post("/ai", async (req, res) => {
   try {
-    const q = req.query.q;
-    if (!q) return res.send("No question");
+    const userMsg = req.body.message;
+    if (!userMsg) return res.json({ reply: "Message missing" });
 
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-3.5-turbo",
-          messages: [{ role: "user", content: q }]
-        })
-      }
-    );
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: userMsg }]
+      })
+    });
 
     const data = await response.json();
-    res.send(data.choices[0].message.content);
+    res.json({ reply: data.choices[0].message.content });
+
   } catch (err) {
-    res.send("AI error");
+    res.json({ reply: "AI error" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running");
-});
+app.listen(PORT, () => console.log("Server running"));
