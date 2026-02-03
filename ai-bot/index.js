@@ -28,7 +28,7 @@ app.get("/ai", async (req, res) => {
     }
 
     const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -38,6 +38,7 @@ app.get("/ai", async (req, res) => {
       body: JSON.stringify({
         contents: [
           {
+            role: "user",
             parts: [{ text: q }]
           }
         ]
@@ -46,9 +47,20 @@ app.get("/ai", async (req, res) => {
 
     const data = await response.json();
 
-    const reply =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "No reply from AI";
+    // Debug (Render logs me dikhega)
+    console.log("Gemini Response:", JSON.stringify(data));
+
+    let reply = "No reply from AI";
+
+    if (
+      data.candidates &&
+      data.candidates[0] &&
+      data.candidates[0].content &&
+      data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0]
+    ) {
+      reply = data.candidates[0].content.parts[0].text;
+    }
 
     res.send(reply);
 
