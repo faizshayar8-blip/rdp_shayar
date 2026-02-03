@@ -1,37 +1,33 @@
 import express from "express";
-import OpenAI from "openai";
+import fetch from "node-fetch";
 
 const app = express();
-app.use(express.json());
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-app.get("/", (req, res) => {
-  res.send("Nightbot AI is running ✅");
-});
+const PORT = process.env.PORT || 3000;
 
 app.get("/ai", async (req, res) => {
   try {
-    const userMsg = req.query.q;
-    if (!userMsg) return res.send("No message");
+    const q = req.query.q;
+    if (!q) return res.send("No query");
 
-    const reply = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a friendly YouTube Nightbot AI." },
-        { role: "user", content: userMsg }
-      ]
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: q }]
+      })
     });
 
-    res.send(reply.choices[0].message.content);
-  } catch (err) {
+    const d = await r.json();
+    res.send(d.choices?.[0]?.message?.content || "AI error");
+  } catch (e) {
     res.send("AI error");
   }
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("AI server running on port", PORT);
+  console.log("Server running on", PORT);
 });
