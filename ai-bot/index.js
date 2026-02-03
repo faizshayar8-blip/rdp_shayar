@@ -4,14 +4,23 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.json());
 
+// ✅ ROOT FIX (404 nahi aayega)
 app.get("/", (req, res) => {
-  res.send("AI Bot is running");
+  res.send("AI Bot is alive ✅");
 });
 
-app.post("/ai", async (req, res) => {
+// ✅ HEALTH CHECK (Render ke liye)
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
+
+// 🤖 AI ROUTE (Nightbot yahin hit karega)
+app.get("/ask", async (req, res) => {
   try {
-    const userMsg = req.body.message;
-    if (!userMsg) return res.json({ reply: "Message missing" });
+    const userMsg = req.query.msg;
+    if (!userMsg) {
+      return res.send("Kuch likho bhai 😅");
+    }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -21,17 +30,31 @@ app.post("/ai", async (req, res) => {
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: userMsg }]
+        messages: [
+          { role: "system", content: "You are a helpful Hindi-English YouTube live chat assistant." },
+          { role: "user", content: userMsg }
+        ],
+        max_tokens: 80
       })
     });
 
     const data = await response.json();
-    res.json({ reply: data.choices[0].message.content });
+
+    if (!data.choices) {
+      return res.send("AI error aa gaya 🤕");
+    }
+
+    const reply = data.choices[0].message.content;
+    res.send(reply);
 
   } catch (err) {
-    res.json({ reply: "AI error" });
+    console.error(err);
+    res.send("Server error 😓");
   }
 });
 
+// 🚀 SERVER START
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running"));
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+});
