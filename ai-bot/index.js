@@ -9,13 +9,15 @@ const PORT = process.env.PORT || 10000;
 
 // Gemini Setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
+
+// Use most compatible model
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash"
+  model: "gemini-1.0-pro"
 });
 
-// Home Route
+// Home
 app.get("/", (req, res) => {
-  res.send("✅ Nightbot AI is Running (Gemini)");
+  res.send("✅ Nightbot AI Running");
 });
 
 // AI Route
@@ -23,13 +25,10 @@ app.get("/ai", async (req, res) => {
   try {
     const q = req.query.q;
 
-    if (!q) {
-      return res.send("❌ Question missing");
-    }
+    if (!q) return res.send("Question missing");
 
-    if (!process.env.GEMINI_KEY) {
-      return res.send("❌ Gemini API Key Missing");
-    }
+    if (!process.env.GEMINI_KEY)
+      return res.send("API key missing");
 
     const result = await model.generateContent(q);
     const response = await result.response;
@@ -43,7 +42,7 @@ app.get("/ai", async (req, res) => {
   }
 });
 
-// Start Server
+// Start
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port", PORT);
+  console.log("🚀 Running on", PORT);
 });
