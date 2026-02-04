@@ -1,48 +1,60 @@
 import express from "express";
+import fetch from "node-fetch";
 import dotenv from "dotenv";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+app.use(express.json());
 
-// Gemini Setup
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
+const API_KEY = process.env.GEMINI_API_KEY;
 
-// Use most compatible model
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.0-pro"
-});
+// ✅ Safe working model
+const MODEL = "models/gemini-1.5-flash";
 
-// Home
-app.get("/", (req, res) => {
-  res.send("✅ Nightbot AI Running");
-});
-
-// AI Route
-app.get("/ai", async (req, res) => {
+app.post("/chat", async (req, res) => {
   try {
-    const q = req.query.q;
+    const msg = req.body.message;
 
-    if (!q) return res.send("Question missing");
+    if (!msg) {
+      return res.status(400).json({ error: "Message missing" });
+    }
 
-    if (!process.env.GEMINI_KEY)
-      return res.send("API key missing");
+    const url = `https://generativelanguage.googleapis.com/v1/${MODEL}:generateContent?key=${API_KEY}`;
 
-    const result = await model.generateContent(q);
-    const response = await result.response;
-    const text = response.text();
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: msg }],
+          },
+        ],
+      }),
+    });
 
-    res.send(text);
+    const data = await response.json();
 
-  } catch (err) {
-    console.error("Gemini Error:", err);
-    res.send("❌ AI Error");
+    if (!response.ok) {
+      console.log("Gemini Error:", data);
+      return res.status(500).json(data);
+    }
+
+    const reply =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No reply from AI";
+
+    res.json({ reply });
+
+  } catch (e) {
+    console.log(e);
+    res.status(500).json({ error: "Server crashed" });
   }
 });
 
-// Start
-app.listen(PORT, () => {
-  console.log("🚀 Running on", PORT);
+app.listen(10000, () => {
+  console.log("🚀 Bot running on 10000");
 });
