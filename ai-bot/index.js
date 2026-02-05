@@ -7,54 +7,70 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// Test Route
+// Test route
 app.get("/", (req, res) => {
-  res.send("✅ AI Server Running!");
+  res.send("✅ HuggingFace AI Server Running");
 });
 
-// AI Route (POST only)
+// Check API Key
+app.get("/check", (req, res) => {
+  if (process.env.HF_API_KEY) {
+    res.send("✅ HF API KEY Loaded");
+  } else {
+    res.send("❌ HF API KEY Missing");
+  }
+});
+
+// AI Route
 app.post("/ai", async (req, res) => {
   try {
     const { prompt } = req.body;
 
     if (!prompt) {
-      return res.status(400).json({ error: "Prompt missing" });
+      return res.status(400).json({ error: "Prompt required" });
+    }
+
+    const HF_KEY = process.env.HF_API_KEY;
+
+    if (!HF_KEY) {
+      return res.status(500).json({ error: "HF API Key missing" });
     }
 
     const response = await fetch(
-      "https://router.huggingface.co/hf-inference/models/google/gemma-2-2b-it",
+      "https://router.huggingface.co/hf-inference/models/google/flan-t5-base",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.HF_API_KEY}`,
-          "Content-Type": "application/json",
+          "Authorization": `Bearer ${HF_KEY}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          inputs: prompt,
-        }),
+          inputs: prompt
+        })
       }
     );
 
     const data = await response.json();
 
     if (!response.ok) {
+      console.log("HF Error:", data);
       return res.status(500).json(data);
     }
 
-    let reply =
-      data[0]?.generated_text ||
-      data.generated_text ||
-      "No response";
+    const reply =
+      data[0]?.generated_text || "No reply from AI";
 
     res.json({ reply });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server Error" });
   }
 });
 
-// Port
+// Start Server
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log("Server running on", PORT);
+  console.log("🚀 Server running on " + PORT);
 });
